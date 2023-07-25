@@ -58,7 +58,7 @@ class RoleUserLogin(MethodView):
              return ({"message":"Invalid Credintial"} ),401
        
         if   user.active==True and pbkdf2_sha256.verify(user_data["password"], user.password):
-            access_token = create_access_token(identity=user.uid, fresh=True)
+            access_token = create_access_token(identity=user.user_id, fresh=True)
             decode_jti=decode_token(access_token)
             if user.token is None:
                 RoleUserModel.query.filter(RoleUserModel.user_id==user_data["user_id"]).update({"token":access_token,"jti":decode_jti['jti']})
@@ -93,7 +93,7 @@ class RoleUserLogin(MethodView):
 def get_role():
     x=get_jwt()["jti"]
     current_user = get_jwt_identity()
-    data= RoleUserModel.query.filter(RoleUserModel.uid == current_user).first()
+    data= RoleUserModel.query.filter(RoleUserModel.user_id== current_user).first()
     if data is None:
         abort(404,message="User,not found")
     if x!=data.jti:
@@ -101,7 +101,7 @@ def get_role():
     
     data2=RoleModel.query.filter(RoleModel.uid == data.role_id).first()
     if data2 is None:
-        abort(401,message="Role,not vaild ")
+        abort(404,message="Role,not vaild ")
 
     if data2.active==True:
 
@@ -140,44 +140,12 @@ def get_role():
 
 
 @blp.route('/margaret/role-user/<user_id>', methods=['GET'])
-
-class RoleUserOne(MethodView):
-    @blp.response(200, RoleUserViewCreateSchema())
-    @jwt_required()
-    def get(self,user_id):
-        x=get_jwt()["jti"]
-        current_user = get_jwt_identity()
-        data= RoleUserModel.query.filter(RoleUserModel.uid == current_user).first()
-        if x!=data.jti:
-            abort(401,message="unauthorized User")
-        if data is None:
-            abort(404,message="User,not found")
-        data2=RoleModel.query.filter(RoleModel.uid == data.role_id).first()
-        if data2 is None:
-            abort(401,message="Role,not vaild ")
-        if data2.active==True:
-            if data2.role['user_management'] =='a':
-        
-                if data.active==True:
-                    dbdata= RoleUserModel.query.filter(RoleUserModel.user_id == user_id).first()
-                    if dbdata:
-                        return dbdata,200
-                    abort(404,message="Not found any data")
-
-                abort(401,message="User is not active")
-
-            abort(401,message="This Role is not permitted for you")
-
-        abort(401,message="role is not active")
-
-
-
-@blp.route('/margaret/role-user/all', methods=['GET'])
 @jwt_required()
-def get_user_all():
+def get_user_id(user_id):
     x=get_jwt()["jti"]
+
     current_user = get_jwt_identity()
-    data= RoleUserModel.query.filter(RoleUserModel.uid == current_user).first()
+    data= RoleUserModel.query.filter(RoleUserModel.user_id== current_user).first()
     if data is None:
         abort(404,message="User,not found")
     if x!=data.jti:
@@ -185,7 +153,53 @@ def get_user_all():
     
     data2=RoleModel.query.filter(RoleModel.uid == data.role_id).first()
     if data2 is None:
-        abort(401,message="Role,not vaild ")
+        abort(404,message="Role,not vaild ")
+    if data2.active==True:
+        get_data = RoleUserModel.query.filter(RoleUserModel.user_id==user_id).first()
+        # print(get_data)
+        if not get_data:
+            return jsonify({'message' : 'No user found!'}),404
+
+        if data2.role['user_management'] =='a':
+    
+            if data.active==True:
+                output=[]
+                output_data = {}
+                output_data['id'] = get_data.id
+                output_data['uid'] = get_data.uid
+                output_data['active'] = get_data.active
+                output_data['name'] = get_data.name
+                output_data['user_id'] = get_data.user_id
+                output_data['mobile_number'] = get_data.mobile_number
+                output_data['email'] = get_data.email
+                output_data['role_id'] = get_data.role_id
+                output_data['logs'] = get_data.logs
+                # print(output_data,'..........................')
+                output.append(output_data)
+                
+
+                return output,200
+            abort(401,message="User is not active")
+
+        abort(401,message="This Role is not permitted for you")
+
+    abort(400,message="role is not active")
+
+
+@blp.route('/margaret/role-user/all', methods=['GET'])
+@jwt_required()
+def get_user_all():
+    x=get_jwt()["jti"]
+    current_user = get_jwt_identity()
+    data= RoleUserModel.query.filter(RoleUserModel.user_id== current_user).first()
+    if data is None:
+        abort(404,message="User,not found")
+    if x!=data.jti:
+        abort(401,message="unauthorized User")
+    
+    data2=RoleModel.query.filter(RoleModel.uid == data.role_id).first()
+    if data2 is None:
+        abort(404,message="Role,not vaild ")
     if data2.active==True:
         get_data = RoleUserModel.query.all()
         # print(get_data)
@@ -207,11 +221,12 @@ def get_user_all():
                     output_data['mobile_number'] = i.mobile_number
                     output_data['email'] = i.email
                     output_data['role_id'] = i.role_id
+                    output_data['logs'] = i.logs
                     # print(output_data,'..........................')
-                    output.append({"data":output_data})
+                    output.append(output_data)
                 
 
-                return output,200
+                return {"data":output},200
             abort(401,message="User is not active")
 
         abort(401,message="This Role is not permitted for you")
@@ -219,40 +234,13 @@ def get_user_all():
     abort(400,message="role is not active")
 
 
-@blp.route('/margaret/role-user/all-new', methods=['GET'])
-class RoleUser(MethodView):
-    @blp.response(200, RoleUserViewCreateSchema(many=True))
-    @jwt_required()
-    def get(self):
-        x=get_jwt()["jti"]
-        current_user = get_jwt_identity()
-        data= RoleUserModel.query.filter(RoleUserModel.uid == current_user).first()
-        if x!=data.jti:
-            abort(401,message="unauthorized User")
-        if data is None:
-            abort(404,message="User,not found")
-        data2=RoleModel.query.filter(RoleModel.uid == data.role_id).first()
-        if data2 is None:
-            abort(401,message="Role,not vaild ")
-        if data2.active==True:
-            if data2.role['user_management'] =='a':
-        
-                if data.active==True:
-                    dbdata= RoleUserModel.query.all()
-                    return dbdata,200
-                abort(401,message="User is not active")
-
-            abort(401,message="This Role is not permitted for you")
-
-        abort(400,message="role is not active")
-
 
 @blp.route('/margaret/role-user/update', methods=['PUT'])
 @jwt_required()
 def update_user():
     x=get_jwt()["jti"]
     current_user = get_jwt_identity()
-    data= RoleUserModel.query.filter(RoleUserModel.uid == current_user).first()
+    data= RoleUserModel.query.filter(RoleUserModel.user_id== current_user).first()
     if data is None:
         abort(404,message="User,not found")
     if x!=data.jti:
@@ -260,7 +248,7 @@ def update_user():
     
     data2=RoleModel.query.filter(RoleModel.uid == data.role_id).first()
     if data2 is None:
-        abort(401,message="Role,not vaild ")
+        abort(404,message="Role,not vaild ")
     if data2.active==True:
 
         if data2.role['user_management'] =='a':
@@ -292,8 +280,8 @@ def update_user():
                                 email=request_data["email"]
                             elif i=='mobile_number':
                                 mobile_number=request_data["mobile_number"]
-                            elif i=='role':
-                                role=request_data["role"]
+                            elif i=='role_id':
+                                role_id=request_data["role_id"]
                             elif i=='active':
                                 active=request_data["active"]
                                 
@@ -303,22 +291,17 @@ def update_user():
                             "create_at": str(create_at)
                         }
                         logs = []
-                        mak=flatten_list_of_dicts(update_data.logs)
-                        logs.append(mak)
+                        logs.append(update_data.logs)
                         logs.append(new_logs)
-                        one_array_logs=[]
-                        for item in logs:
-                            if isinstance(item, list):
-                                one_array_logs.extend(item)
-                            elif isinstance(item, dict):
-                                one_array_logs.append(item)
-                        RoleUserModel.query.filter(RoleUserModel.user_id==request_data['user_id']).update({"name":name,"email":email,"mobile_number":mobile_number,'role_id':role_id,"active":active,"logs":one_array_logs})
+                        logs_data=flatten_list_of_dicts(logs)
+                        RoleUserModel.query.filter(RoleUserModel.user_id==request_data['user_id']).update({"name":name,"email":email,"mobile_number":mobile_number,'role_id':role_id,"active":active,"logs":logs_data})
                         db.session.commit()
                         return {"message":"update Sucessfuly"},201
                     except ValidationError as err:
                         return err.messages, 422
-                else:
-                    return {"message":"This request has not data"},400
+                
+                abort(400,message="This request has not data")
+
             abort(401,message="User is not active")
 
         abort(401,message="This Role is not permitted for you")
@@ -326,14 +309,12 @@ def update_user():
     abort(400,message="role is not active")
 
 
-
-
 @blp.route('/margaret/role-user/update-status', methods=['PUT'])
 @jwt_required()
 def update_user_status_by_id():
     x=get_jwt()["jti"]
     current_user = get_jwt_identity()
-    data= RoleUserModel.query.filter(RoleUserModel.uid == current_user).first()
+    data= RoleUserModel.query.filter(RoleUserModel.user_id== current_user).first()
     if data is None:
         abort(404,message="User,not found")
     if x!=data.jti:
@@ -341,7 +322,7 @@ def update_user_status_by_id():
     
     data2=RoleModel.query.filter(RoleModel.uid == data.role_id).first()
     if data2 is None:
-        abort(401,message="Role,not vaild ")
+        abort(404,message="Role,not vaild ")
 
     if data2.active==True:
 
@@ -358,12 +339,12 @@ def update_user_status_by_id():
                         create_at=datetime.now()
                         request_data = role_user_update_status_schema.load(json_data)
                         # print(request_data['user_id'])
-                        update_data= RoleUserModel.query.filter(RoleUserModel.user_id == request_data['user_id']).first() 
+                        update_data= RoleUserModel.query.filter(RoleUserModel.uid == request_data['uid']).first() 
                         if not update_data : abort(401,message="This User Id is not Valid")
                         
                        
                            
-                        if request['active']==True:
+                        if request_data['active']==True:
                             new_logs={
                                 "admin": str(current_user),
                                 "message": "user is actived",
@@ -377,23 +358,18 @@ def update_user_status_by_id():
                             }
 
                         logs = []
-                        mak=flatten_list_of_dicts(update_data.logs)
-                        logs.append(mak)
+                        logs.append(update_data.logs)
                         logs.append(new_logs)
-                        one_array_logs=[]
-                        for item in logs:
-                            if isinstance(item, list):
-                                one_array_logs.extend(item)
-                            elif isinstance(item, dict):
-                                one_array_logs.append(item)
-                        RoleUserModel.query.filter(RoleUserModel.user_id==request_data['user_id']).update({"active":request['active'],"logs":one_array_logs})
+                        logs_data=flatten_list_of_dicts(logs)
+                        RoleUserModel.query.filter(RoleUserModel.uid==request_data['uid']).update({"active":request_data['active'],"logs":logs_data})
 
                         db.session.commit()
                         return {"message":"status update Sucessfuly"},201
                     except ValidationError as err:
                         return err.messages, 422
-                else:
-                    return {"message":"This request has not data"},400
+                
+                abort(400,message="This request has not data")
+            
             abort(401,message="User is not active")
 
         abort(401,message="This Role is not permitted for you")
@@ -402,49 +378,13 @@ def update_user_status_by_id():
 
 
 
-# @blp.route('/v1/user-management/user/status-update', methods=['PUT'])
-# class RoleUser(MethodView):
-#     @blp.arguments(RoleUserUpdateStatusSchema)
-#     # @blp.response(200, RoleUserViewCreateSchema())
-#     @jwt_required()
-#     def put(self,user_data):
-#         x=get_jwt()["jti"]
-#         current_user = get_jwt_identity()
-#         data= RoleUserModel.query.filter(RoleUserModel.uid == current_user).first()
-#         if x!=data.jti:
-#             abort(401,message="unauthorized User")
-#         if data is None:
-#             abort(404,message="User,not found")
-#         data2=RoleModel.query.filter(RoleModel.uid == data.role_id).first()
-#         if data2 is None:
-#             abort(401,message="Role,not vaild ")
-#         if data2.active==True:
-#             if data2.role['user_management'] =='a':
-        
-#                 if data.active==True:
-#                     update_data=RoleUserModel.query.filter(RoleUserModel.user_id==user_data['user_id']).first()
-#                     if not update_data : abort(401,message="This User Id is not Valid")
-#                     status=update_data.status
-#                     if status!=user_data['status']:
-#                         status=user_data['status']
-#                         RoleUserModel.query.filter(RoleUserModel.user_id==user_data['user_id']).update({"status":status})
-
-#                         db.session.commit()
-#                     return {"message":"update Succesfully"},201
-#                 abort(401,message="User is not active")
-
-#             abort(401,message="This Role is not permitted for you")
-
-#         abort(400,message="role is not active")
-
-
 
 @blp.route('/margaret/role-user/user/change-password', methods=['PUT'])
 @jwt_required()
 def update_user_by_id_password():
     x=get_jwt()["jti"]
     current_user = get_jwt_identity()
-    data= RoleUserModel.query.filter(RoleUserModel.uid == current_user).first()
+    data= RoleUserModel.query.filter(RoleUserModel.user_id== current_user).first()
     if data is None:
         abort(404,message="User,not found")
     if x!=data.jti:
@@ -452,7 +392,7 @@ def update_user_by_id_password():
     
     data2=RoleModel.query.filter(RoleModel.uid == data.role_id).first()
     if data2 is None:
-        abort(401,message="Role,not vaild ")
+        abort(404,message="Role,not vaild ")
     if data2.active==True:
 
         if data2.role['user_management'] =='a':
@@ -466,12 +406,12 @@ def update_user_by_id_password():
                     try:
                         create_at=datetime.now()
                         request_data = admin_user_change_password_schema.load(json_data)
-                        user_id=request_data["user_id"]
+                    
                         # print(user_id)
-                        x=RoleUserModel.query.filter(RoleUserModel.user_id==user_id).first()
-                        if x is None:
+                        update_data=RoleUserModel.query.filter(RoleUserModel.uid==request_data['uid']).first()
+                        if update_data is None:
                             # print(x)
-                            abort(401,message="User id not Match")
+                            abort(404,message="User id not found")
                         new_password=request_data["new_password"]
                        
                         new_logs={
@@ -480,25 +420,21 @@ def update_user_by_id_password():
                             "create_at": str(create_at)
                         }
                         logs = []
-                        mak=flatten_list_of_dicts(x.logs)
-                        logs.append(mak)
+                        logs.append(update_data.logs)
                         logs.append(new_logs)
-                        one_array_logs=[]
-                        for item in logs:
-                            if isinstance(item, list):
-                                one_array_logs.extend(item)
-                            elif isinstance(item, dict):
-                                one_array_logs.append(item)
-                        RoleUserModel.query.filter(RoleUserModel.user_id==user_id).update({"password":pbkdf2_sha256.hash(new_password),"logs":one_array_logs})
+                        logs_data=flatten_list_of_dicts(logs)
+                        RoleUserModel.query.filter(RoleUserModel.uid==request_data['uid']).update({"password":pbkdf2_sha256.hash(new_password),"logs":logs_data})
                         db.session.commit()
                         
 
                         return {"message":"Password update Sucessfuly"},201
                     except ValidationError as err:
                         return err.messages, 422
-                else:
-                    return {"message":"This request has not data"},400
+                
+                abort(400,message="This request has not data")
+
             abort(401,message="User is not active")
+
         abort(401,message="This Role is not permitted for you")
 
     abort(400,message="role is not active")
@@ -508,7 +444,7 @@ def update_user_by_id_password():
 def update_user_by_self_password():
     x=get_jwt()["jti"]
     current_user = get_jwt_identity()
-    data= RoleUserModel.query.filter(RoleUserModel.uid == current_user).first()
+    data= RoleUserModel.query.filter(RoleUserModel.user_id== current_user).first()
     if data is None:
         abort(404,message="User,not found")
     if x!=data.jti:
@@ -516,7 +452,7 @@ def update_user_by_self_password():
     
     data2=RoleModel.query.filter(RoleModel.uid == data.role_id).first()
     if data2 is None:
-        abort(401,message="Role,not vaild ")
+        abort(404,message="Role,not vaild ")
     if data2.active==True:
 
         if data2.role['user_management'] =='a':
@@ -529,10 +465,10 @@ def update_user_by_self_password():
                         return {"message": "No input data provided"}, 400
                     try:
                         request_data = admin_user_self_change_password_schema.load(json_data)
-                        user_id=request_data["user_id"]
+                
                         # print(user_id)
-                        x=RoleUserModel.query.filter(and_(RoleUserModel.user_id==user_id,RoleUserModel.user_id==data.user_id)).first()
-                        if x is None:
+                        update_data=RoleUserModel.query.filter(and_(RoleUserModel.uid==request_data['uid'],RoleUserModel.user_id==data.user_id)).first()
+                        if update_data is None:
 
                             abort(401,message="My id not Match")
                         
@@ -542,20 +478,14 @@ def update_user_by_self_password():
                             create_at=datetime.now()
                             new_logs={
                                 "admin": str(current_user),
-                                "message": "user password updated",
+                                "message": "password updated",
                                 "create_at": str(create_at)
                             }
                             logs = []
-                            mak=flatten_list_of_dicts(x.logs)
-                            logs.append(mak)
+                            logs.append(update_data.logs)
                             logs.append(new_logs)
-                            one_array_logs=[]
-                            for item in logs:
-                                if isinstance(item, list):
-                                    one_array_logs.extend(item)
-                                elif isinstance(item, dict):
-                                    one_array_logs.append(item)
-                            RoleUserModel.query.filter(RoleUserModel.user_id==user_id).update({"password":pbkdf2_sha256.hash(new_password),"logs":one_array_logs})
+                            logs_data=flatten_list_of_dicts(logs)
+                            RoleUserModel.query.filter(RoleUserModel.uid==request_data['uid']).update({"password":pbkdf2_sha256.hash(new_password),"logs":logs_data})
                             db.session.commit()
                         else:
                             return {"message": "Old password doesn't match "}, 400
@@ -563,9 +493,11 @@ def update_user_by_self_password():
                         return {"message":"Password update Sucessfuly"},201
                     except ValidationError as err:
                         return err.messages, 422
-                else:
-                    return {"message":"This request has not data"},400
+                    
+                abort(400,message="This request has not data")
+
             abort(401,message="User is not active")
+
         abort(401,message="This Role is not permitted for you")
 
     abort(400,message="role is not active")
@@ -578,17 +510,17 @@ class UserLogout(MethodView):
     def post(self):
         jti = get_jwt()["jti"]
         
-        x=BLOCKLIST.add(jti)
+        BLOCKLIST.add(jti)
         
         return {"message": "Successfully logged out ,,,,"}, 201
 
 
-@blp.route('/margaret/role-user/delete/<int:user_id>', methods=['DELETE'])
+@blp.route('/margaret/role-user/delete/<user_id>', methods=['DELETE'])
 @jwt_required()
-def create_role(user_id):
+def delte_role(user_id):
     x=get_jwt()["jti"]
     current_user = get_jwt_identity()
-    data= RoleUserModel.query.filter(RoleUserModel.uid == current_user).first()
+    data= RoleUserModel.query.filter(RoleUserModel.user_id== current_user).first()
     if data is None:
         abort(404,message="User,not found")
     if x!=data.jti:
@@ -596,11 +528,11 @@ def create_role(user_id):
     
     data2=RoleModel.query.filter(RoleModel.uid == data.role_id).first()
     if data2 is None:
-        abort(401,message="Role,not vaild ")
+        abort(404,message="Role,not vaild ")
 
-    if data.user_id==user_id and data2.super_admin==True:
-       
-        abort(400,message="permition denied")
+    if data.user_id==user_id and data.super_admin==True:
+        abort(400,message="super admin in not deletable, permition denied")
+
     if data2.active==True:
         
 
@@ -611,9 +543,15 @@ def create_role(user_id):
                 role_data=RoleUserModel.query.filter(RoleUserModel.user_id==user_id).first()
                 if role_data is None:
                     abort(400,message="User is not found")
-
-                RoleUserModel.query.filter(RoleUserModel.user_id==user_id).delete()
-                db.session.commit()
+                try:
+                    RoleUserModel.query.filter(RoleUserModel.user_id==user_id).delete()
+                    db.session.commit()
+                except ValueError:
+                    return "Invalid user_id. Please provide a valid integer value."
+                except Exception as e:
+                    # Handle other exceptions, such as database errors
+                    db.session.rollback()  # Rollback the transaction to avoid leaving the database in an inconsistent state
+                    return f"Error occurred: {str(e)}"
 
                 
                 return jsonify({'message' : 'Deleted Succesfully!'}),201

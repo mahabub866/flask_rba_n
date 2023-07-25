@@ -11,21 +11,21 @@ class RoleViewSchema(Schema):
 
 class RoleSchemaCreate(Schema):
     name = fields.Str(required=True)
-    active = fields.Boolean(required=False, missing=True)
-    user_management = fields.Str(required=False, missing='a')
-    tv_app_management = fields.Str(required=False, missing='a')
-    app_management = fields.Str(required=False, missing='a')
-    end_tv_app_user_management = fields.Str(required=False, missing='a')
+    active = fields.Boolean(required=True,)
+    user_management = fields.Str(required=True)
+    tv_app_management = fields.Str(required=True)
+    app_management = fields.Str(required=True)
+    end_tv_app_user_management = fields.Str(required=True)
 
     
 class RoleSchemaUpdate(Schema):
     uid = fields.Str(required=True)
     name = fields.Str(required=True)
-    active = fields.Boolean(required=False, missing=True)
-    user_management = fields.Str(required=False, missing='a')
-    tv_app_management = fields.Str(required=False, missing='a')
-    app_management = fields.Str(required=False, missing='a')
-    end_tv_app_user_management = fields.Str(required=False, missing='a')
+    active = fields.Boolean(required=True)
+    user_management = fields.Str(required=True)
+    tv_app_management = fields.Str(required=True)
+    app_management = fields.Str(required=True)
+    end_tv_app_user_management = fields.Str(required=True)
 
 
 class RoleSchemaUpdateStatus(Schema):

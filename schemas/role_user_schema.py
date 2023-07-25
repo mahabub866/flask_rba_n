@@ -36,12 +36,12 @@ class RoleUserUpdateStatusSchema(Schema):
     active = fields.Boolean(required=True)
 
 class AdminSelfUserChangePasswordSchema(Schema):
-    user_id=fields.Str(required=True)
+    uid=fields.Str(required=True)
     new_password=fields.Str(required=True)
     old_password=fields.Str(required=True)
     
 class AdminUserChangePasswordSchema(Schema):
-    user_id=fields.Str(required=True)
+    uid=fields.Str(required=True)
     new_password=fields.Str(required=True)
     
 class RoleLoginSchema(Schema):

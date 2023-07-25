@@ -1,8 +1,8 @@
-def flatten_list_of_dicts(lst):
+def flatten_list_of_dicts(logs):
     result = []
-    for item in lst:
+    for item in logs:
         if isinstance(item, list):
-            result.extend(flatten_list_of_dicts(item))
+            result.extend(item)
         elif isinstance(item, dict):
             result.append(item)
     return result

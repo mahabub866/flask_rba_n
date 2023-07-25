@@ -8,7 +8,7 @@ from flask_cors import CORS
 from flask_caching import Cache
 from dotenv import load_dotenv
 import psycopg2
-# last e install dibo
+from flask_smorest import Blueprint, abort
 from flask_migrate import Migrate
 from blocklist import BLOCKLIST
 from sqlalchemy import asc,or_,desc
@@ -81,7 +81,6 @@ def create_app(db_url=None):
 
     
 
-# 
     @jwt.token_in_blocklist_loader
     def check_if_token_in_blocklist(jwt_header, jwt_payload):
         block_count=BlockModel.query.filter(BlockModel.user_id == jwt_payload["sub"]).count()
@@ -91,52 +90,59 @@ def create_app(db_url=None):
             db.session.commit()
         block_token=BlockModel.query.filter(BlockModel.jti==jwt_payload["jti"]).first()
         if block_token is not None:
-            return 'Token Block'
-        main=RoleUserModel.query.filter(RoleUserModel.uid==jwt_payload["sub"]).first()
+            abort(401,message="Token has been block")
+        main=RoleUserModel.query.filter(RoleUserModel.user_id==jwt_payload["sub"]).first()
         # user_main=UserModel.query.filter(UserModel.uid==jwt_payload["sub"]).first()
         user_main=None
         if main  is None and user_main is None:
-            return 'Token Block'
+            abort(401,message="Token has been block")
         if main is None and user_main:
             decode_value_user=decode_token(user_main.token)
             if decode_value_user['jti']!=jwt_payload["jti"]:
-                return 'Token Block'
+                abort(401,message="Token has been block")
         if main and user_main is None:
             decode_value=decode_token(main.token)
             if decode_value['jti']!=jwt_payload["jti"]:
-                return 'Token Block'
+                abort(401,message="Token has been block")
 
-
-        # return jwt_payload["jti"] in BLOCKLIST
 
 
     @jwt.revoked_token_loader
     def revoked_token_callback(jwt_header, jwt_payload):
+        block_count=BlockModel.query.filter(BlockModel.user_id == jwt_payload["sub"]).count()
+        if block_count >=10:
+            delete_token= BlockModel.query.filter(BlockModel.user_id == jwt_payload["sub"]).order_by(asc(BlockModel.create_at)).first()
+            db.session.delete(delete_token)
+            db.session.commit()
+        block_token=BlockModel.query.filter(BlockModel.jti==jwt_payload["jti"]).first()
+        if block_token is not None:
+            abort(401,message="Token has been block")
+        main=RoleUserModel.query.filter(RoleUserModel.user_id==jwt_payload["sub"]).first()
+        # user_main=UserModel.query.filter(UserModel.uid==jwt_payload["sub"]).first()
+        user_main=None
+        if main  is None and user_main is None:
+            abort(401,message="Token has been block")
+        if main is None and user_main:
+            decode_value_user=decode_token(user_main.token)
+            if decode_value_user['jti']!=jwt_payload["jti"]:
+                abort(401,message="Token has been block")
+        if main and user_main is None:
+            decode_value=decode_token(main.token)
+            if decode_value['jti']!=jwt_payload["jti"]:
+                abort(401,message="Token has been block")
+        abort(401,message="The token has been revoked")
         
 
-        return (
-            jsonify(
-                {"description": "The token has been revoked."}
-            ),
-            401,
-        )
-
-    # @jwt.additional_claims_loader
-    # def add_claims_to_jwt(identity):
-    #     if identity == 1:
-    #         return {"is_admin": True}
-    #     return {"is_admin": False}
         
     @jwt.expired_token_loader
     def expired_token_callback(jwt_header, jwt_payload):
         # print(jwt_payload,".............././sa time")
-        return (
-            jsonify({"message": "The token has expired.", "error": "token_expired"}),
-            401,
-        )
+        abort(401,message="The token has expired.")
+       
 
     @jwt.invalid_token_loader
     def invalid_token_callback(error):
+        
         return (
             jsonify(
                 {"message": "Signature verification failed.", "error": "invalid_token"}
@@ -145,26 +151,33 @@ def create_app(db_url=None):
         )
     @jwt.needs_fresh_token_loader
     def token_not_fresh_callback(jwt_header, jwt_payload):
-        return (
-            jsonify(
-                {
-                    "description": "The token is not fresh.",
-                    "error": "fresh_token_required",
-                }
-            ),
-            401,
-        )
+        block_count=BlockModel.query.filter(BlockModel.user_id == jwt_payload["sub"]).count()
+        if block_count >=10:
+            delete_token= BlockModel.query.filter(BlockModel.user_id == jwt_payload["sub"]).order_by(asc(BlockModel.create_at)).first()
+            db.session.delete(delete_token)
+            db.session.commit()
+        block_token=BlockModel.query.filter(BlockModel.jti==jwt_payload["jti"]).first()
+        if block_token is not None:
+            abort(401,message="Token has been block")
+        main=RoleUserModel.query.filter(RoleUserModel.user_id==jwt_payload["sub"]).first()
+        # user_main=UserModel.query.filter(UserModel.uid==jwt_payload["sub"]).first()
+        user_main=None
+        if main  is None and user_main is None:
+            abort(401,message="Token has been block")
+        if main is None and user_main:
+            decode_value_user=decode_token(user_main.token)
+            if decode_value_user['jti']!=jwt_payload["jti"]:
+                abort(401,message="Token has been block")
+        if main and user_main is None:
+            decode_value=decode_token(main.token)
+            if decode_value['jti']!=jwt_payload["jti"]:
+                abort(401,message="Token has been block")
+        abort(401,message="The token is not fresh")
+        
     @jwt.unauthorized_loader
     def missing_token_callback(error):
-        return (
-            jsonify(
-                {
-                    "description": "Request does not contain an access token.",
-                    "error": "authorization_required",
-                }
-            ),
-            401,
-        )
+        abort(401,message="Request does not contain an access token")
+       
  
 
 
